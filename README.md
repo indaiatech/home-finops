@@ -8,12 +8,13 @@ An open-source, Infrastructure-as-Code (IaC) household financial planning platfo
 
 ## Core Capabilities
 
-- **Multi-Account Open Finance Ingestion:** Consolidates 2+ personal **Meu Pluggy** accounts via Pluggy's official Personal Use bridge (`meu.pluggy.ai` -> `dashboard.pluggy.ai` using the `MeuPluggy` Direct connector), with optional CSV/OFX fallback for legacy history.
-- **Declarative YAML Configuration (IaC):** People, cost-sharing weights, data sources (`item_id` UUIDs), 2-level categories/subcategories, auto-categorization rules, internal-transfer rules, recurring items, and annual expenses are versionable YAML validated against JSON Schemas.
+- **Multi-Account Open Finance Ingestion (`v2` + Investments):** Consolidates 2+ personal **Meu Pluggy** accounts via Pluggy's official Personal Use bridge (`meu.pluggy.ai` -> `dashboard.pluggy.ai` using the `MeuPluggy` Direct connector), pulling checking accounts (`reservedBalances` included), credit cards, cursor-paginated `GET /v2/transactions`, and active `GET /investments` (CDB/RDB/Caixinhas, funds, treasury), with optional CSV/OFX fallback.
+- **Total Saved & Net Liquidity Tracking:** Displays consolidated household savings (**Checking + Investments/CDBs**), open credit-card balances, net post-card liquidity, per-person savings breakdown, and starting balance for 24-month cash-flow projections.
+- **Declarative YAML Configuration (IaC):** People, cost-sharing weights, data sources (`item_id` UUIDs), 2-level categories/subcategories, auto-categorization rules (`match_regex`, Open Finance `match_provider_category`, and `match_amount_sign`), internal-transfer rules, recurring items, and annual expenses are versionable YAML validated against JSON Schemas.
 - **24-Month Spreadsheet UI (Current Year + Next Year):**
   - Hierarchical rows across **General (Shared)**, **Per-Person**, **Subcategories** (e.g., Groceries, Dining Out), and **Annual/Seasonal** items (e.g., IPVA, IPTU, insurance, vacations).
   - Instant toggle between **Cash View** (full annual payment in its due month) and **Monthly Provision View** (`amount / 12` monthly reserve).
-  - Layered projections: manual cell overrides -> detected credit-card installments -> YAML recurring/annual rules -> rolling moving averages or budget caps.
+  - Layered projections: manual cell overrides -> posted/detected future credit-card installments -> YAML recurring/annual rules -> rolling moving averages or budget caps, with a transparent **How This Cell Was Calculated** breakdown drawer.
 - **Automatic Shared-Expense Settlement:** Tracks who paid each `shared` expense and calculates the exact monthly settlement transfer between household members based on configurable split weights.
 - **Hermes Agent Integration (`finops-mcp`):** Exposes typed, audited MCP tools (read, what-if simulation, transaction categorization, projection overrides, and sync health checks) plus a dedicated Hermes Skill.
 
