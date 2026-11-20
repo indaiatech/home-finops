@@ -91,6 +91,7 @@ def get_spreadsheet_summary(
         "annual_mode": matrix["annual_mode"],
         "uncategorized_count": matrix["uncategorized_count"],
         "starting_cash_balance": matrix["starting_cash_balance"],
+        "wealth_summary": matrix.get("wealth_summary"),
         "current_month_settlement": matrix["current_month_settlement"],
         "monthly_summary": matrix["summary"],
         "rows": [

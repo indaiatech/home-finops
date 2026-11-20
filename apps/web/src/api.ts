@@ -66,6 +66,37 @@ export interface SettlementData {
   transfers: SettlementTransfer[];
 }
 
+export interface WealthPosition {
+  id: string;
+  person_id: string;
+  person_name: string;
+  account_type: "BANK" | "INVESTMENT";
+  subtype: string;
+  name: string;
+  balance: number;
+}
+
+export interface WealthByPerson {
+  person_id: string;
+  display_name: string;
+  cash_balance: number;
+  investments_balance: number;
+  total_saved: number;
+  credit_card_balance: number;
+  net_liquidity: number;
+}
+
+export interface WealthSummary {
+  total_saved: number;
+  cash_balance: number;
+  investments_balance: number;
+  credit_card_balance: number;
+  net_liquidity: number;
+  active_positions_count: number;
+  positions: WealthPosition[];
+  by_person: WealthByPerson[];
+}
+
 export interface SpreadsheetMatrix {
   base_year: number;
   next_year: number;
@@ -77,6 +108,7 @@ export interface SpreadsheetMatrix {
   months: string[];
   people: Person[];
   starting_cash_balance: number;
+  wealth_summary?: WealthSummary;
   uncategorized_count: number;
   rows: SpreadsheetRow[];
   summary: Record<string, MonthSummary>;

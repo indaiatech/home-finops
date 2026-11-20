@@ -2,12 +2,18 @@ import {
   AlertTriangle,
   ArrowRight,
   Calendar,
+  ChevronDown,
+  ChevronUp,
+  CreditCard,
   Database,
   Download,
+  Landmark,
+  PiggyBank,
   RefreshCw,
   Scale,
   Sparkles,
   Upload,
+  Wallet,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -47,6 +53,7 @@ export default function App() {
   } | null>(null);
   const [showTriage, setShowTriage] = useState(false);
   const [showImport, setShowImport] = useState(false);
+  const [showPositions, setShowPositions] = useState(false);
 
   const loadAll = useCallback(async () => {
     setLoading(true);
@@ -211,6 +218,119 @@ export default function App() {
               Dismiss
             </button>
           </div>
+        )}
+
+        {/* Household Savings & Liquidity Banner (Checking + Caixinhas/CDBs vs Credit Cards) */}
+        {matrix?.wealth_summary && (
+          <section className="rounded-xl border border-emerald-900/60 bg-gradient-to-r from-slate-900 via-slate-900/95 to-emerald-950/30 p-4 shadow-lg">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex flex-wrap items-center gap-6">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-500/15 ring-1 ring-emerald-500/40">
+                    <PiggyBank className="h-6 w-6 text-emerald-400" />
+                  </div>
+                  <div>
+                    <div className="text-[11px] font-semibold uppercase tracking-wider text-emerald-400">
+                      Total Saved (Cash + Investments / CDB)
+                    </div>
+                    <div className="num text-2xl font-bold tracking-tight text-white">
+                      {formatCurrency(matrix.wealth_summary.total_saved, matrix.currency)}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="h-9 w-px bg-slate-800 hidden sm:block" />
+
+                <div className="flex flex-wrap items-center gap-5">
+                  <div>
+                    <div className="flex items-center gap-1 text-[11px] text-slate-400">
+                      <Landmark className="h-3.5 w-3.5 text-sky-400" />
+                      Investments (RDB / CDB)
+                    </div>
+                    <div className="num mt-0.5 text-sm font-semibold text-sky-300">
+                      {formatCurrency(matrix.wealth_summary.investments_balance, matrix.currency)}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center gap-1 text-[11px] text-slate-400">
+                      <Wallet className="h-3.5 w-3.5 text-emerald-400" />
+                      Checking / Reserved
+                    </div>
+                    <div className="num mt-0.5 text-sm font-semibold text-slate-200">
+                      {formatCurrency(matrix.wealth_summary.cash_balance, matrix.currency)}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center gap-1 text-[11px] text-slate-400">
+                      <CreditCard className="h-3.5 w-3.5 text-rose-400" />
+                      Credit Cards Open
+                    </div>
+                    <div className="num mt-0.5 text-sm font-semibold text-rose-300">
+                      -{formatCurrency(matrix.wealth_summary.credit_card_balance, matrix.currency)}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="text-[11px] text-slate-400">Net Liquidity (After Cards)</div>
+                    <div className="num mt-0.5 text-sm font-bold text-emerald-300">
+                      {formatCurrency(matrix.wealth_summary.net_liquidity, matrix.currency)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                {matrix.wealth_summary.by_person.map((pw) => (
+                  <div
+                    key={pw.person_id}
+                    className="rounded-lg border border-slate-800 bg-slate-950/75 px-3 py-1.5 text-xs"
+                  >
+                    <span className="text-slate-400">{pw.display_name}: </span>
+                    <span className="num font-semibold text-emerald-300">
+                      {formatCurrency(pw.total_saved, matrix.currency)}
+                    </span>
+                  </div>
+                ))}
+
+                {matrix.wealth_summary.positions.length > 0 && (
+                  <button
+                    onClick={() => setShowPositions((v) => !v)}
+                    className="inline-flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-950 px-2.5 py-1.5 text-xs font-medium text-slate-300 hover:bg-slate-800"
+                  >
+                    {matrix.wealth_summary.active_positions_count} Positions
+                    {showPositions ? (
+                      <ChevronUp className="h-3.5 w-3.5" />
+                    ) : (
+                      <ChevronDown className="h-3.5 w-3.5" />
+                    )}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {showPositions && matrix.wealth_summary.positions.length > 0 && (
+              <div className="mt-3 grid grid-cols-1 gap-2 border-t border-slate-800/80 pt-3 sm:grid-cols-2 lg:grid-cols-3">
+                {matrix.wealth_summary.positions.map((pos) => (
+                  <div
+                    key={pos.id}
+                    className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2 text-xs"
+                  >
+                    <div className="min-w-0 pr-2">
+                      <div className="truncate font-medium text-slate-200">{pos.name}</div>
+                      <div className="text-[11px] text-slate-400">
+                        {pos.person_name} • {pos.subtype}
+                      </div>
+                    </div>
+                    <div className="num shrink-0 font-semibold text-emerald-300">
+                      {formatCurrency(pos.balance, matrix.currency)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
         )}
 
         {/* Top Summary Strip: Pluggy Health + Automatic Shared-Expense Settlement */}

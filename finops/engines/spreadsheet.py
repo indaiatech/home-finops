@@ -455,9 +455,99 @@ def compute_spreadsheet_matrix(
                 }
             )
 
-    # Starting cash balance from non-credit bank accounts
-    checking_accounts = db.query(BankAccount).filter(BankAccount.account_type != "CREDIT").all()
-    starting_cash = _q(sum((Decimal(str(a.current_balance)) for a in checking_accounts), Decimal("0.00")))
+    # Compute household wealth & liquidity summary (Cash + Investments / Caixinhas vs. Credit Cards)
+    all_accounts = db.query(BankAccount).all()
+    cash_balance = Decimal("0.00")
+    investments_balance = Decimal("0.00")
+    credit_card_balance = Decimal("0.00")
+    person_wealth: dict[str, dict[str, Decimal]] = {
+        p.id: {
+            "cash": Decimal("0.00"),
+            "investments": Decimal("0.00"),
+            "credit_card": Decimal("0.00"),
+        }
+        for p in people
+    }
+    positions: list[dict[str, Any]] = []
+
+    for acct in all_accounts:
+        bal = _q(Decimal(str(acct.current_balance)))
+        atype = acct.account_type.upper()
+        p_entry = person_wealth.setdefault(
+            acct.person_id,
+            {"cash": Decimal("0.00"), "investments": Decimal("0.00"), "credit_card": Decimal("0.00")},
+        )
+        if atype == "CREDIT":
+            cc_used = abs(bal)
+            credit_card_balance += cc_used
+            p_entry["credit_card"] += cc_used
+        elif atype == "INVESTMENT":
+            if bal > Decimal("0.00"):
+                investments_balance += bal
+                p_entry["investments"] += bal
+                positions.append(
+                    {
+                        "id": acct.id,
+                        "person_id": acct.person_id,
+                        "person_name": people_map[acct.person_id].display_name
+                        if acct.person_id in people_map
+                        else acct.person_id,
+                        "account_type": "INVESTMENT",
+                        "subtype": acct.subtype or "CDB/RDB",
+                        "name": acct.name,
+                        "balance": float(bal),
+                    }
+                )
+        else:
+            cash_balance += bal
+            p_entry["cash"] += bal
+            if bal != Decimal("0.00"):
+                positions.append(
+                    {
+                        "id": acct.id,
+                        "person_id": acct.person_id,
+                        "person_name": people_map[acct.person_id].display_name
+                        if acct.person_id in people_map
+                        else acct.person_id,
+                        "account_type": "BANK",
+                        "subtype": acct.subtype or "CHECKING",
+                        "name": acct.name,
+                        "balance": float(bal),
+                    }
+                )
+
+    total_saved = _q(cash_balance + investments_balance)
+    net_liquidity = _q(total_saved - credit_card_balance)
+    starting_cash = total_saved
+    positions.sort(key=lambda x: x["balance"], reverse=True)
+
+    wealth_summary = {
+        "total_saved": float(total_saved),
+        "cash_balance": float(_q(cash_balance)),
+        "investments_balance": float(_q(investments_balance)),
+        "credit_card_balance": float(_q(credit_card_balance)),
+        "net_liquidity": float(net_liquidity),
+        "active_positions_count": len(positions),
+        "positions": positions,
+        "by_person": [
+            {
+                "person_id": p.id,
+                "display_name": p.display_name,
+                "cash_balance": float(_q(person_wealth[p.id]["cash"])),
+                "investments_balance": float(_q(person_wealth[p.id]["investments"])),
+                "total_saved": float(_q(person_wealth[p.id]["cash"] + person_wealth[p.id]["investments"])),
+                "credit_card_balance": float(_q(person_wealth[p.id]["credit_card"])),
+                "net_liquidity": float(
+                    _q(
+                        person_wealth[p.id]["cash"]
+                        + person_wealth[p.id]["investments"]
+                        - person_wealth[p.id]["credit_card"]
+                    )
+                ),
+            }
+            for p in people
+        ],
+    }
 
     # Monthly summary footer
     summary: dict[str, dict[str, float]] = {}
@@ -498,6 +588,7 @@ def compute_spreadsheet_matrix(
             for p in people
         ],
         "starting_cash_balance": float(starting_cash),
+        "wealth_summary": wealth_summary,
         "uncategorized_count": uncat_count,
         "rows": rows,
         "summary": summary,

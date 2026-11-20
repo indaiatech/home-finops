@@ -213,7 +213,13 @@ class PluggyApiAdapter:
                     account.subtype = acct_data.get("subtype")
                     account.name = str(acct_data.get("name") or account.name)
                     account.currency = str(acct_data.get("currencyCode") or "BRL")
-                    account.current_balance = Decimal(str(acct_data.get("balance") or 0)).quantize(Decimal("0.01"))
+                    base_bal = Decimal(str(acct_data.get("balance") or 0))
+                    # Include reserved balances (e.g., Nubank "Saldo Compartilhado") on BANK accounts
+                    reserved_total = Decimal("0.00")
+                    for res_bal in (acct_data.get("bankData") or {}).get("reservedBalances") or []:
+                        for avail in res_bal.get("availableAmounts") or []:
+                            reserved_total += Decimal(str(avail.get("amount") or 0))
+                    account.current_balance = (base_bal + reserved_total).quantize(Decimal("0.01"))
                     account.updated_at = datetime.now(UTC)
                     db.flush()
 
@@ -321,6 +327,53 @@ class PluggyApiAdapter:
                             if existing_tx.categorization_source not in PROTECTED_SOURCES:
                                 apply_rules_to_transaction(existing_tx, bundle, categories_by_id)
                             upserted += 1
+
+                # Sync investments (e.g., Nubank Caixinhas / RDB / CDB / Treasury / Funds)
+                inv_resp = http.get(
+                    f"{self.api_base_url}/investments",
+                    params={"itemId": item.id, "pageSize": 500},
+                    headers=headers,
+                )
+                if inv_resp.status_code == 200:
+                    investments_data = inv_resp.json().get("results", [])
+                    for inv_data in investments_data:
+                        ext_inv_id = f"inv:{inv_data['id']}"
+                        inv_bal = (
+                            Decimal("0.00")
+                            if inv_data.get("status") == "TOTAL_WITHDRAWAL"
+                            else Decimal(str(inv_data.get("balance") or 0)).quantize(Decimal("0.01"))
+                        )
+                        inv_acct = (
+                            db.query(BankAccount)
+                            .filter(
+                                BankAccount.source_id == source_id,
+                                BankAccount.external_account_id == ext_inv_id,
+                            )
+                            .one_or_none()
+                        )
+                        if inv_acct is None and inv_bal <= Decimal("0.00"):
+                            continue
+                        if inv_acct is None:
+                            inv_acct = BankAccount(
+                                source_id=source_id,
+                                external_account_id=ext_inv_id,
+                                person_id=source.person_id,
+                                default_scope=item.default_scope,
+                                account_type="INVESTMENT",
+                                institution_name=item.connector_name or item.label,
+                                name=str(inv_data.get("name") or inv_data.get("subtype") or "Investment")[:128],
+                            )
+                            db.add(inv_acct)
+                        inv_acct.pluggy_item_id = item.id
+                        inv_acct.account_type = "INVESTMENT"
+                        inv_acct.subtype = str(inv_data.get("subtype") or inv_data.get("type") or "INVESTMENT")[
+                            :64
+                        ]
+                        inv_acct.name = str(inv_data.get("name") or inv_acct.name)[:128]
+                        inv_acct.currency = str(inv_data.get("currencyCode") or "BRL")
+                        inv_acct.current_balance = inv_bal
+                        inv_acct.updated_at = datetime.now(UTC)
+                    db.flush()
 
             detect_inter_account_transfers(db, bundle)
             source.last_synced_at = datetime.now(UTC)
