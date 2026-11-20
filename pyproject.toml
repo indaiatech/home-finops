@@ -1,0 +1,51 @@
+[project]
+name = "finops"
+version = "0.2.0"
+description = "Open-source, IaC-driven household FinOps platform with Meu Pluggy ingestion, 24-month spreadsheet projections, automatic shared-expense settlement, and Hermes Agent MCP integration."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.12"
+dependencies = [
+  "alembic>=1.14.0",
+  "fastapi>=0.115.6",
+  "httpx>=0.28.0",
+  "jsonschema>=4.23.0",
+  "mcp>=1.6.0",
+  "openpyxl>=3.1.5",
+  "psycopg[binary]>=3.2.4",
+  "pydantic>=2.10.0",
+  "pydantic-settings>=2.7.0",
+  "python-dotenv>=1.0.1",
+  "python-multipart>=0.0.20",
+  "pyyaml>=6.0.2",
+  "rich>=13.9.4",
+  "sqlalchemy>=2.0.36",
+  "uvicorn[standard]>=0.34.0",
+]
+
+[dependency-groups]
+dev = [
+  "pytest>=8.3.4",
+  "pytest-asyncio>=0.25.0",
+  "ruff>=0.8.4",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["finops"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 115
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = ["B008", "E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+asyncio_default_fixture_loop_scope = "function"

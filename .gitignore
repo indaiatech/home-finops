@@ -1,0 +1,52 @@
+# Environment & secrets (NEVER commit real credentials)
+.env
+.env.*
+!.env.example
+
+# Personal / local IaC configs and financial imports (NEVER commit PII)
+local/
+*.csv
+*.ofx
+*.qfx
+*.xlsx
+*.xls
+
+# Local Archify delivery receipts (contain absolute host paths)
+*.delivery.json
+
+# Database dumps and backups
+backups/
+*.sql
+*.dump
+*.sqlite
+*.db
+
+# Docker overrides with local secrets/mounts
+docker-compose.override.yml
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+dist/
+build/
+
+# Node / Web
+node_modules/
+apps/web/dist/
+.vite/
+*.tsbuildinfo
+
+# OS & Editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
