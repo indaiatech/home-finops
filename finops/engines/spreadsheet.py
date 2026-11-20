@@ -135,6 +135,7 @@ def compute_spreadsheet_matrix(
     annual_mode: str = "cash",
     scope_filter: str = "all",
     person_id: str | None = None,
+    emergency_months: int = 6,
     today: date | None = None,
 ) -> dict[str, Any]:
     """Compute the complete 24-month spreadsheet grid (current year + next year)."""
@@ -486,6 +487,7 @@ def compute_spreadsheet_matrix(
     cash_balance = Decimal("0.00")
     investments_balance = Decimal("0.00")
     credit_card_balance = Decimal("0.00")
+    emergency_reserve_balance = Decimal("0.00")
     person_wealth: dict[str, dict[str, Decimal]] = {
         p.id: {
             "cash": Decimal("0.00"),
@@ -499,6 +501,7 @@ def compute_spreadsheet_matrix(
     for acct in all_accounts:
         bal = _q(Decimal(str(acct.current_balance)))
         atype = acct.account_type.upper()
+        is_ef = bool(getattr(acct, "is_emergency_fund", True))
         p_entry = person_wealth.setdefault(
             acct.person_id,
             {"cash": Decimal("0.00"), "investments": Decimal("0.00"), "credit_card": Decimal("0.00")},
@@ -511,6 +514,8 @@ def compute_spreadsheet_matrix(
             if bal > Decimal("0.00"):
                 investments_balance += bal
                 p_entry["investments"] += bal
+                if is_ef:
+                    emergency_reserve_balance += bal
                 positions.append(
                     {
                         "id": acct.id,
@@ -522,11 +527,14 @@ def compute_spreadsheet_matrix(
                         "subtype": acct.subtype or "CDB/RDB",
                         "name": acct.name,
                         "balance": float(bal),
+                        "is_emergency_fund": is_ef,
                     }
                 )
         else:
             cash_balance += bal
             p_entry["cash"] += bal
+            if is_ef and bal > Decimal("0.00"):
+                emergency_reserve_balance += bal
             if bal != Decimal("0.00"):
                 positions.append(
                     {
@@ -539,6 +547,7 @@ def compute_spreadsheet_matrix(
                         "subtype": acct.subtype or "CHECKING",
                         "name": acct.name,
                         "balance": float(bal),
+                        "is_emergency_fund": is_ef,
                     }
                 )
 
@@ -546,6 +555,47 @@ def compute_spreadsheet_matrix(
     net_liquidity = _q(total_saved - credit_card_balance)
     starting_cash = total_saved
     positions.sort(key=lambda x: x["balance"], reverse=True)
+
+    # Compute average monthly household expense burn rate (from active months in current year)
+    active_exp_months = [
+        expense_totals[mk] for mk in months[:12] if mk <= current_month and expense_totals[mk] > Decimal("0.00")
+    ]
+    if not active_exp_months:
+        active_exp_months = [expense_totals[mk] for mk in months[:12] if expense_totals[mk] > Decimal("0.00")]
+    avg_monthly_burn = (
+        _q(sum(active_exp_months, Decimal("0.00")) / Decimal(len(active_exp_months)))
+        if active_exp_months
+        else Decimal("0.00")
+    )
+
+    target_months_dec = Decimal(max(1, int(emergency_months)))
+    target_reserve_amount = _q(avg_monthly_burn * target_months_dec)
+    selected_reserve = _q(emergency_reserve_balance)
+    surplus_or_deficit = _q(selected_reserve - target_reserve_amount)
+
+    if target_reserve_amount > Decimal("0.00"):
+        funded_pct = float(_q((selected_reserve / target_reserve_amount) * Decimal("100")))
+        delta_pct = float(_q(Decimal(str(funded_pct)) - Decimal("100")))
+    else:
+        funded_pct = 100.0 if selected_reserve > 0 else 0.0
+        delta_pct = 0.0
+
+    coverage_months = float(_q(selected_reserve / avg_monthly_burn)) if avg_monthly_burn > Decimal("0.00") else 0.0
+
+    emergency_fund_summary = {
+        "target_months": int(emergency_months),
+        "avg_monthly_expenses": float(avg_monthly_burn),
+        "target_amount": float(target_reserve_amount),
+        "selected_reserve_balance": float(selected_reserve),
+        "excluded_balance": float(_q(total_saved - selected_reserve)),
+        "funded_pct": funded_pct,
+        "surplus_or_deficit_pct": delta_pct,
+        "surplus_or_deficit_amount": float(surplus_or_deficit),
+        "coverage_months": coverage_months,
+        "status": "surplus" if funded_pct >= 100.0 else ("on_track" if funded_pct >= 80.0 else "shortfall"),
+        "selected_positions_count": sum(1 for p in positions if p["is_emergency_fund"]),
+        "total_positions_count": len(positions),
+    }
 
     wealth_summary = {
         "total_saved": float(total_saved),
@@ -555,6 +605,7 @@ def compute_spreadsheet_matrix(
         "net_liquidity": float(net_liquidity),
         "active_positions_count": len(positions),
         "positions": positions,
+        "emergency_fund": emergency_fund_summary,
         "by_person": [
             {
                 "person_id": p.id,

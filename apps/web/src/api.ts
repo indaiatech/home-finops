@@ -143,6 +143,22 @@ export interface WealthPosition {
   subtype: string;
   name: string;
   balance: number;
+  is_emergency_fund: boolean;
+}
+
+export interface EmergencyFundSummary {
+  target_months: number;
+  avg_monthly_expenses: number;
+  target_amount: number;
+  selected_reserve_balance: number;
+  excluded_balance: number;
+  funded_pct: number;
+  surplus_or_deficit_pct: number;
+  surplus_or_deficit_amount: number;
+  coverage_months: number;
+  status: "surplus" | "on_track" | "shortfall";
+  selected_positions_count: number;
+  total_positions_count: number;
 }
 
 export interface WealthByPerson {
@@ -163,6 +179,7 @@ export interface WealthSummary {
   net_liquidity: number;
   active_positions_count: number;
   positions: WealthPosition[];
+  emergency_fund?: EmergencyFundSummary;
   by_person: WealthByPerson[];
 }
 
@@ -296,6 +313,7 @@ export const api = {
     annual_mode: "cash" | "monthly_provision";
     scope_filter: "all" | "shared" | "personal" | "annual";
     person_id?: string | null;
+    emergency_months?: number;
   }) {
     const qs = new URLSearchParams({
       annual_mode: params.annual_mode,
@@ -303,7 +321,16 @@ export const api = {
     });
     if (params.base_year) qs.set("base_year", String(params.base_year));
     if (params.person_id) qs.set("person_id", params.person_id);
+    if (params.emergency_months) qs.set("emergency_months", String(params.emergency_months));
     return fetchJson<SpreadsheetMatrix>(`/api/spreadsheet?${qs.toString()}`);
+  },
+
+  toggleEmergencyFundAccount(accountId: string, isEmergencyFund: boolean) {
+    return fetchJson(`/api/accounts/${accountId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ is_emergency_fund: isEmergencyFund }),
+    });
   },
 
   getSyncHealth() {

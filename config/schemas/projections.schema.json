@@ -24,6 +24,13 @@
           "type": "string",
           "enum": ["cash", "monthly_provision"],
           "default": "cash"
+        },
+        "emergency_fund_months": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 36,
+          "default": 6,
+          "description": "Target emergency fund duration in months of average household expenses (default: 6)."
         }
       }
     },

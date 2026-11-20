@@ -46,6 +46,7 @@ export default function App() {
   const [personFilter, setPersonFilter] = useState<string>("");
   const [annualMode, setAnnualMode] = useState<"cash" | "monthly_provision">("cash");
   const [zoomMode, setZoomMode] = useState<"24m" | "current_year" | "next_12m">("24m");
+  const [emergencyMonths, setEmergencyMonths] = useState<number>(6);
 
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
@@ -67,6 +68,7 @@ export default function App() {
           annual_mode: annualMode,
           scope_filter: scopeFilter,
           person_id: personFilter || null,
+          emergency_months: emergencyMonths,
         }),
         api.getSyncHealth(),
         api.getCategories(),
@@ -93,7 +95,12 @@ export default function App() {
     } finally {
       setLoading(false);
     }
-  }, [annualMode, scopeFilter, personFilter, settlementMonth]);
+  }, [annualMode, scopeFilter, personFilter, settlementMonth, alertsMonth, emergencyMonths]);
+
+  async function handleToggleEmergencyAccount(accountId: string, currentVal: boolean) {
+    await api.toggleEmergencyFundAccount(accountId, !currentVal);
+    await loadAll();
+  }
 
   useEffect(() => {
     loadAll();
@@ -316,7 +323,9 @@ export default function App() {
                     onClick={() => setShowPositions((v) => !v)}
                     className="inline-flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-950 px-2.5 py-1.5 text-xs font-medium text-slate-300 hover:bg-slate-800"
                   >
-                    {matrix.wealth_summary.active_positions_count} Positions
+                    {matrix.wealth_summary.emergency_fund
+                      ? `${matrix.wealth_summary.emergency_fund.selected_positions_count}/${matrix.wealth_summary.active_positions_count} in Reserve`
+                      : `${matrix.wealth_summary.active_positions_count} Positions`}
                     {showPositions ? (
                       <ChevronUp className="h-3.5 w-3.5" />
                     ) : (
@@ -327,23 +336,137 @@ export default function App() {
               </div>
             </div>
 
+            {/* Emergency Fund Reserve Section (Default 6 Months, Configurable Period & Account Selection) */}
+            {matrix.wealth_summary.emergency_fund && (() => {
+              const ef = matrix.wealth_summary.emergency_fund;
+              const isSurplus = ef.surplus_or_deficit_amount >= 0;
+              const barPct = Math.min(100, Math.max(0, Math.round(ef.funded_pct)));
+              return (
+                <div className="mt-3.5 rounded-xl border border-slate-800/90 bg-slate-950/75 p-3.5">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <span className="text-xs font-semibold uppercase tracking-wider text-slate-200">
+                        Emergency Fund Reserve
+                      </span>
+                      <div className="inline-flex items-center rounded-lg border border-slate-800 bg-slate-900 p-0.5 text-[11px]">
+                        {[3, 6, 9, 12, 18, 24].map((m) => (
+                          <button
+                            key={m}
+                            onClick={() => setEmergencyMonths(m)}
+                            className={`rounded-md px-2 py-0.5 font-medium transition ${
+                              emergencyMonths === m
+                                ? "bg-emerald-600 text-white"
+                                : "text-slate-400 hover:text-slate-200"
+                            }`}
+                          >
+                            {m}m
+                          </button>
+                        ))}
+                      </div>
+                      <span className="num text-xs text-slate-400">
+                        Coverage:{" "}
+                        <strong className="text-white">
+                          {ef.coverage_months.toFixed(1)} months
+                        </strong>{" "}
+                        (avg burn {formatCurrency(ef.avg_monthly_expenses, matrix.currency)}/mo)
+                      </span>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span
+                        className={`num rounded-lg border px-2.5 py-1 text-xs font-bold ${
+                          isSurplus
+                            ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-300"
+                            : ef.funded_pct >= 80
+                              ? "border-amber-500/40 bg-amber-500/15 text-amber-300"
+                              : "border-rose-500/40 bg-rose-500/15 text-rose-300"
+                        }`}
+                      >
+                        {isSurplus
+                          ? `+${ef.surplus_or_deficit_pct.toFixed(1)}% Surplus (+${formatCurrency(ef.surplus_or_deficit_amount, matrix.currency)})`
+                          : `${ef.surplus_or_deficit_pct.toFixed(1)}% Short (${formatCurrency(ef.surplus_or_deficit_amount, matrix.currency)})`}
+                      </span>
+                      <span className="num text-xs font-semibold text-slate-300">
+                        {ef.funded_pct.toFixed(1)}% of {ef.target_months}m target
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Emergency Reserve Progress Bar */}
+                  <div className="mt-2.5 h-2 w-full overflow-hidden rounded-full bg-slate-800">
+                    <div
+                      className={`h-full rounded-full transition-all ${
+                        isSurplus
+                          ? "bg-emerald-500"
+                          : ef.funded_pct >= 80
+                            ? "bg-amber-400"
+                            : "bg-rose-500"
+                      }`}
+                      style={{ width: `${barPct}%` }}
+                    />
+                  </div>
+
+                  <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-400">
+                    <div className="num">
+                      Selected Reserve:{" "}
+                      <strong className="text-emerald-300">
+                        {formatCurrency(ef.selected_reserve_balance, matrix.currency)}
+                      </strong>{" "}
+                      / Target ({ef.target_months} mo):{" "}
+                      <strong className="text-white">
+                        {formatCurrency(ef.target_amount, matrix.currency)}
+                      </strong>
+                      {ef.excluded_balance > 0 && (
+                        <span className="ml-2 text-slate-500">
+                          ({formatCurrency(ef.excluded_balance, matrix.currency)} excluded)
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => setShowPositions((v) => !v)}
+                      className="text-emerald-400 hover:underline"
+                    >
+                      {showPositions
+                        ? "Hide account selector"
+                        : "Choose which accounts/investments count toward Emergency Reserve"}
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
+
             {showPositions && matrix.wealth_summary.positions.length > 0 && (
               <div className="mt-3 grid grid-cols-1 gap-2 border-t border-slate-800/80 pt-3 sm:grid-cols-2 lg:grid-cols-3">
                 {matrix.wealth_summary.positions.map((pos) => (
-                  <div
+                  <label
                     key={pos.id}
-                    className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2 text-xs"
+                    className={`flex cursor-pointer items-center justify-between rounded-lg border px-3 py-2 text-xs transition ${
+                      pos.is_emergency_fund
+                        ? "border-emerald-800/70 bg-slate-950/80"
+                        : "border-slate-800/60 bg-slate-950/35 opacity-60"
+                    }`}
                   >
-                    <div className="min-w-0 pr-2">
-                      <div className="truncate font-medium text-slate-200">{pos.name}</div>
-                      <div className="text-[11px] text-slate-400">
-                        {pos.person_name} • {pos.subtype}
+                    <div className="flex min-w-0 items-center gap-2.5 pr-2">
+                      <input
+                        type="checkbox"
+                        checked={pos.is_emergency_fund}
+                        onChange={() =>
+                          handleToggleEmergencyAccount(pos.id, pos.is_emergency_fund)
+                        }
+                        className="h-3.5 w-3.5 rounded border-slate-700 accent-emerald-500"
+                      />
+                      <div className="min-w-0">
+                        <div className="truncate font-medium text-slate-200">{pos.name}</div>
+                        <div className="text-[11px] text-slate-400">
+                          {pos.person_name} • {pos.subtype} •{" "}
+                          {pos.is_emergency_fund ? "In Emergency Reserve" : "Excluded"}
+                        </div>
                       </div>
                     </div>
                     <div className="num shrink-0 font-semibold text-emerald-300">
                       {formatCurrency(pos.balance, matrix.currency)}
                     </div>
-                  </div>
+                  </label>
                 ))}
               </div>
             )}

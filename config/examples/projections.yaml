@@ -5,6 +5,7 @@ horizon:
   # Current calendar year + next calendar year (24 monthly columns).
   mode: current_plus_next_year
   default_annual_view: cash
+  emergency_fund_months: 6
 
 recurring:
   - id: salary_person_a

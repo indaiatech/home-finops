@@ -122,6 +122,10 @@ class SyncTriggerRequest(BaseModel):
     source_id: str | None = None
 
 
+class AccountPatchRequest(BaseModel):
+    is_emergency_fund: bool
+
+
 # ---------------------------------------------------------------------------
 # Health & Configuration Endpoints
 # ---------------------------------------------------------------------------
@@ -263,6 +267,7 @@ def get_spreadsheet(
     annual_mode: str = Query(default="cash", pattern=r"^(cash|monthly_provision)$"),
     scope_filter: str = Query(default="all", pattern=r"^(all|shared|personal|annual)$"),
     person_id: str | None = Query(default=None),
+    emergency_months: int = Query(default=6, ge=1, le=36),
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:
     return compute_spreadsheet_matrix(
@@ -271,7 +276,42 @@ def get_spreadsheet(
         annual_mode=annual_mode,
         scope_filter=scope_filter,
         person_id=person_id,
+        emergency_months=emergency_months,
     )
+
+
+@app.patch("/api/accounts/{account_id}")
+def patch_account(
+    account_id: str,
+    payload: AccountPatchRequest,
+    x_finops_actor: str = Header(default="user"),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    acct = db.get(BankAccount, account_id)
+    if acct is None:
+        raise HTTPException(status_code=404, detail=f"Account not found: {account_id}")
+    prev = bool(acct.is_emergency_fund)
+    acct.is_emergency_fund = payload.is_emergency_fund
+    acct.updated_at = datetime.now(UTC)
+    db.add(
+        AuditLog(
+            actor=x_finops_actor,
+            action="toggle_emergency_fund_account",
+            entity_type="bank_account",
+            entity_id=acct.id,
+            diff_payload={
+                "name": acct.name,
+                "previous_is_emergency_fund": prev,
+                "new_is_emergency_fund": payload.is_emergency_fund,
+            },
+        )
+    )
+    db.commit()
+    return {
+        "id": acct.id,
+        "name": acct.name,
+        "is_emergency_fund": acct.is_emergency_fund,
+    }
 
 
 @app.get("/api/spreadsheet/cell")

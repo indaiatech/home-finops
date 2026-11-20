@@ -99,6 +99,7 @@ class BankAccount(Base):
     name: Mapped[str] = mapped_column(String(128), nullable=False)
     currency: Mapped[str] = mapped_column(String(3), nullable=False, default="BRL")
     current_balance: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False, default=Decimal("0.00"))
+    is_emergency_fund: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=utcnow, onupdate=utcnow
     )
