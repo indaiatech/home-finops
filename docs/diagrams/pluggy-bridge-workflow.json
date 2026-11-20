@@ -1,0 +1,215 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Meu Pluggy to FinOps Multi-Account Bridge",
+    "locale": "en",
+    "output": "docs/diagrams/pluggy-bridge-workflow.html",
+    "quality_profile": "showcase"
+  },
+  "lanes": [
+    {
+      "id": "meu_pluggy",
+      "label": "Meu Pluggy (Personal)"
+    },
+    {
+      "id": "dashboard",
+      "label": "Pluggy Dashboard (Dev)"
+    },
+    {
+      "id": "finops",
+      "label": "FinOps Local Stack"
+    },
+    {
+      "id": "expiry",
+      "label": "Consent Lifecycle",
+      "variant": "exception"
+    }
+  ],
+  "phases": [
+    {
+      "id": "setup",
+      "label": "One-time setup (per account)",
+      "fromCol": 0,
+      "toCol": 2
+    },
+    {
+      "id": "sync",
+      "label": "Automated daily sync",
+      "fromCol": 3,
+      "toCol": 4,
+      "variant": "emphasis"
+    },
+    {
+      "id": "renewal",
+      "label": "1-year renewal",
+      "fromCol": 5,
+      "toCol": 5,
+      "variant": "security"
+    }
+  ],
+  "mainPath": [
+    "connect_banks",
+    "create_app",
+    "mirror_connector",
+    "save_config",
+    "worker_pull",
+    "pg_ledger"
+  ],
+  "nodes": [
+    {
+      "id": "connect_banks",
+      "lane": "meu_pluggy",
+      "col": 0,
+      "type": "external",
+      "label": "Connect Banks",
+      "sublabel": "up to 5 free (CPF)",
+      "tag": "meu.pluggy.ai"
+    },
+    {
+      "id": "auto_refresh",
+      "lane": "meu_pluggy",
+      "col": 3,
+      "type": "cloud",
+      "label": "24h Auto-Sync",
+      "sublabel": "refreshes bank data"
+    },
+    {
+      "id": "create_app",
+      "lane": "dashboard",
+      "col": 1,
+      "type": "security",
+      "label": "Create App",
+      "sublabel": "clientId + Secret",
+      "tag": "same email"
+    },
+    {
+      "id": "mirror_connector",
+      "lane": "dashboard",
+      "col": 2,
+      "type": "cloud",
+      "label": "MeuPluggy Direct",
+      "sublabel": "Demo -> Connect",
+      "tag": "copy item_id"
+    },
+    {
+      "id": "save_config",
+      "lane": "finops",
+      "col": 2,
+      "type": "database",
+      "label": "Save Local IaC",
+      "sublabel": ".env + sources.yaml",
+      "tag": "gitignored"
+    },
+    {
+      "id": "worker_pull",
+      "lane": "finops",
+      "col": 3,
+      "type": "backend",
+      "label": "finops-worker",
+      "sublabel": "POST /auth + GET"
+    },
+    {
+      "id": "pg_ledger",
+      "lane": "finops",
+      "col": 4,
+      "type": "database",
+      "label": "PostgreSQL 16",
+      "sublabel": "fingerprint dedup"
+    },
+    {
+      "id": "expiry_watch",
+      "lane": "expiry",
+      "col": 4,
+      "type": "security",
+      "label": "Consent Monitor",
+      "sublabel": "30d expiry alert",
+      "tag": "Hermes + UI"
+    },
+    {
+      "id": "renew_link",
+      "lane": "expiry",
+      "col": 5,
+      "type": "messagebus",
+      "label": "Re-link Demo",
+      "sublabel": "update item_id"
+    }
+  ],
+  "edges": [
+    {
+      "id": "banks-to-app",
+      "from": "connect_banks",
+      "to": "create_app",
+      "label": "Open Finance",
+      "variant": "emphasis"
+    },
+    {
+      "id": "app-to-mirror",
+      "from": "create_app",
+      "to": "mirror_connector",
+      "label": "link wallet",
+      "variant": "emphasis"
+    },
+    {
+      "id": "mirror-to-config",
+      "from": "mirror_connector",
+      "to": "save_config",
+      "label": "item_id UUID",
+      "variant": "security"
+    },
+    {
+      "id": "config-to-worker",
+      "from": "save_config",
+      "to": "worker_pull",
+      "label": "load creds",
+      "variant": "emphasis"
+    },
+    {
+      "id": "refresh-to-worker",
+      "from": "auto_refresh",
+      "to": "worker_pull",
+      "label": "GET /items/{id}",
+      "variant": "dashed"
+    },
+    {
+      "id": "worker-to-pg",
+      "from": "worker_pull",
+      "to": "pg_ledger",
+      "label": "upsert",
+      "variant": "emphasis"
+    },
+    {
+      "id": "pg-to-monitor",
+      "from": "pg_ledger",
+      "to": "expiry_watch",
+      "label": "check 1y TTL",
+      "variant": "security"
+    },
+    {
+      "id": "monitor-to-renew",
+      "from": "expiry_watch",
+      "to": "renew_link",
+      "label": "expiring",
+      "variant": "security",
+      "role": "error"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Why 2 Separate Profiles",
+      "items": [
+        "Pluggy Dashboard requires the same email/account used in Meu Pluggy",
+        "Each household member gets an independent credential pair in .env"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Key API Constraints",
+      "items": [
+        "GET /v2/items returns 403 -> item_ids are declared in local/sources.yaml",
+        "Fingerprint dedup prevents duplicates if annual renewal issues a new item_id"
+      ]
+    }
+  ]
+}

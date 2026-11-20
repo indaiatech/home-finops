@@ -1,0 +1,9 @@
+# Copy this block under `mcp_servers:` in `~/.hermes/config.yaml`
+# and define `FINOPS_MCP_TOKEN` in `~/.hermes/.env` (matching FinOps `.env`).
+
+mcp_servers:
+  finops:
+    url: "http://127.0.0.1:8090/mcp"
+    headers:
+      Authorization: "Bearer ${env:FINOPS_MCP_TOKEN}"
+    timeout: 60

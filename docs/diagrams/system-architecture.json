@@ -1,0 +1,219 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "FinOps System Architecture",
+    "locale": "en",
+    "output": "docs/diagrams/system-architecture.html",
+    "quality_profile": "showcase"
+  },
+  "components": [
+    {
+      "id": "pluggy_a",
+      "type": "external",
+      "label": "Meu Pluggy A",
+      "sublabel": "Person A banks",
+      "tag": "24h auto-sync",
+      "pos": [40, 200],
+      "size": [150, 62]
+    },
+    {
+      "id": "pluggy_b",
+      "type": "external",
+      "label": "Meu Pluggy B",
+      "sublabel": "Person B banks",
+      "tag": "24h auto-sync",
+      "pos": [40, 305],
+      "size": [150, 62]
+    },
+    {
+      "id": "csv_ofx",
+      "type": "external",
+      "label": "CSV / OFX",
+      "sublabel": "legacy fallback",
+      "pos": [40, 410],
+      "size": [150, 58]
+    },
+    {
+      "id": "yaml_cfg",
+      "type": "database",
+      "label": "local/*.yaml",
+      "sublabel": "IaC configs + .env",
+      "tag": "gitignored",
+      "pos": [300, 40],
+      "size": [155, 62]
+    },
+    {
+      "id": "browser_user",
+      "type": "external",
+      "label": "Household User",
+      "sublabel": "Spreadsheet browser",
+      "pos": [800, 40],
+      "size": [160, 62]
+    },
+    {
+      "id": "worker",
+      "type": "backend",
+      "label": "finops-worker",
+      "sublabel": "Pluggy pull + dedup",
+      "tag": "multi-account",
+      "pos": [300, 300],
+      "size": [155, 74]
+    },
+    {
+      "id": "db",
+      "type": "database",
+      "label": "PostgreSQL 16",
+      "sublabel": "ledger + overrides",
+      "tag": "source of truth",
+      "pos": [550, 305],
+      "size": [155, 64]
+    },
+    {
+      "id": "api",
+      "type": "backend",
+      "label": "finops-api",
+      "sublabel": "FastAPI :8080",
+      "tag": "24m + settlement",
+      "pos": [800, 305],
+      "size": [160, 64]
+    },
+    {
+      "id": "web",
+      "type": "frontend",
+      "label": "finops-web",
+      "sublabel": "React Grid :5173",
+      "pos": [800, 175],
+      "size": [160, 62]
+    },
+    {
+      "id": "mcp",
+      "type": "security",
+      "label": "finops-mcp",
+      "sublabel": "FastMCP :8090",
+      "tag": "Bearer + audit",
+      "pos": [800, 435],
+      "size": [160, 64]
+    },
+    {
+      "id": "hermes",
+      "type": "external",
+      "label": "Hermes Agent",
+      "sublabel": "~/.hermes MCP",
+      "tag": "read + write",
+      "pos": [1065, 435],
+      "size": [150, 64]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "Docker Compose Stack (127.0.0.1)",
+      "wraps": ["worker", "db", "api", "web", "mcp"]
+    }
+  ],
+  "connections": [
+    {
+      "id": "pluggy-a-pull",
+      "from": "pluggy_a",
+      "to": "worker",
+      "label": "REST pull",
+      "variant": "emphasis"
+    },
+    {
+      "id": "pluggy-b-pull",
+      "from": "pluggy_b",
+      "to": "worker",
+      "label": "REST pull",
+      "variant": "emphasis"
+    },
+    {
+      "id": "csv-import",
+      "from": "csv_ofx",
+      "to": "worker",
+      "label": "file import",
+      "variant": "dashed"
+    },
+    {
+      "id": "yaml-to-worker",
+      "from": "yaml_cfg",
+      "to": "worker",
+      "label": "schema-checked",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "worker-to-db",
+      "from": "worker",
+      "to": "db",
+      "label": "upsert",
+      "variant": "emphasis"
+    },
+    {
+      "id": "api-to-db",
+      "from": "api",
+      "to": "db",
+      "label": "SQL"
+    },
+    {
+      "id": "user-to-web",
+      "from": "browser_user",
+      "to": "web",
+      "label": "HTTP",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "web-to-api",
+      "from": "web",
+      "to": "api",
+      "label": "JSON API",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "mcp-to-api",
+      "from": "mcp",
+      "to": "api",
+      "label": "audited API",
+      "variant": "security",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "id": "hermes-to-mcp",
+      "from": "hermes",
+      "to": "mcp",
+      "label": "MCP HTTP",
+      "variant": "security"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Ingestion & IaC",
+      "items": [
+        "Each Meu Pluggy account bridges to Pluggy Dashboard via MeuPluggy Direct",
+        "YAML configs validated against JSON Schemas; local/ and .env are gitignored"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "24-Month Spreadsheet & Settlement",
+      "items": [
+        "PostgreSQL stores raw events, normalized ledger, and manual overrides",
+        "API computes 2-year projections, annual cash vs provision, and shared split"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Hermes MCP Security",
+      "items": [
+        "Local-only 127.0.0.1 binding with Bearer token authentication",
+        "All Hermes write actions (categorize, override) write to audit_log"
+      ]
+    }
+  ]
+}

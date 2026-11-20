@@ -1,0 +1,100 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: finops-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-finops}
+      POSTGRES_USER: ${POSTGRES_USER:-finops}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me_local_dev_password}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - finops_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-finops} -d ${POSTGRES_DB:-finops}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.python
+    container_name: finops-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-finops}:${POSTGRES_PASSWORD:-change_me_local_dev_password}@postgres:5432/${POSTGRES_DB:-finops}
+      FINOPS_CONFIG_DIR: /app/local
+    volumes:
+      - ${FINOPS_CONFIG_DIR:-./local}:/app/local:ro
+    ports:
+      - "127.0.0.1:${FINOPS_API_PORT:-8080}:8080"
+    command: >
+      sh -c "alembic upgrade head && uvicorn finops.api.app:app --host 0.0.0.0 --port 8080"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.python
+    container_name: finops-worker
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-finops}:${POSTGRES_PASSWORD:-change_me_local_dev_password}@postgres:5432/${POSTGRES_DB:-finops}
+      FINOPS_CONFIG_DIR: /app/local
+    volumes:
+      - ${FINOPS_CONFIG_DIR:-./local}:/app/local:ro
+    command: ["python", "-m", "finops.worker.main"]
+
+  mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile.python
+    container_name: finops-mcp
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      FINOPS_API_BASE_URL: http://api:8080
+      FINOPS_MCP_PORT: 8090
+    ports:
+      - "127.0.0.1:${FINOPS_MCP_PORT:-8090}:8090"
+    command: ["python", "-m", "finops.mcp.server"]
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8090/health')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: finops-web
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${FINOPS_WEB_PORT:-5173}:80"
+
+volumes:
+  finops_pgdata:
