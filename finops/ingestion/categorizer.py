@@ -19,24 +19,49 @@ def apply_rules_to_transaction(
     bundle: LoadedConfig,
     categories_by_id: dict[str, Category],
 ) -> None:
-    """Apply regex internal-transfer detection and categorization rules to one transaction.
+    """Apply internal-transfer detection and categorization rules to one transaction.
 
+    Supports description `match_regex`, Open Finance `match_provider_category`,
+    and optional `match_amount_sign` ('positive' | 'negative').
     Never overwrites transactions explicitly classified by `manual` or `hermes`.
     """
     if tx.categorization_source in PROTECTED_SOURCES:
         return
 
-    # 1. Regex-based internal transfers (e.g., credit card invoice payment)
+    # Reset rule-derived state before re-evaluating so updated rules take effect cleanly
+    tx.is_internal_transfer = False
+    tx.category_id = None
+    tx.categorization_source = "uncategorized"
+
+    provider_cat = (tx.provider_category or "").strip().lower()
+
+    # 1. Internal transfers (regex or provider_category, e.g., credit card bill payments)
     for rule in bundle.internal_transfers:
         regex = rule.get("match_regex")
-        if regex and re.search(regex, tx.description):
+        pcat = (rule.get("match_provider_category") or "").strip().lower()
+        if not regex and not pcat:
+            continue
+        regex_ok = True if not regex else bool(re.search(regex, tx.description))
+        pcat_ok = True if not pcat else (provider_cat == pcat)
+        if regex_ok and pcat_ok:
             tx.is_internal_transfer = True
             tx.categorization_source = "yaml_rule"
             return
 
     # 2. Priority-ordered categorization rules
     for rule in bundle.categorization_rules:
-        if re.search(rule["match_regex"], tx.description):
+        sign = rule.get("match_amount_sign")
+        if sign == "positive" and tx.amount <= 0:
+            continue
+        if sign == "negative" and tx.amount >= 0:
+            continue
+
+        regex = rule.get("match_regex")
+        pcat = (rule.get("match_provider_category") or "").strip().lower()
+        regex_ok = True if not regex else bool(re.search(regex, tx.description))
+        pcat_ok = True if not pcat else (provider_cat == pcat)
+
+        if regex_ok and pcat_ok:
             cat_id = rule["category_id"]
             if cat_id in categories_by_id:
                 tx.category_id = cat_id

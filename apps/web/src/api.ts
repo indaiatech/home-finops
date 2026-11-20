@@ -121,11 +121,24 @@ export interface CategoryTree {
   }>;
 }
 
+export interface ProjectionComponent {
+  kind: string;
+  label: string;
+  detail: string;
+  amount: number;
+}
+
 export interface CellBreakdown {
   month: string;
   category_id: string;
   scope: "shared" | "personal";
   owner_person_id: string | null;
+  projection_explanation?: {
+    method: string;
+    month_state: "past" | "current" | "future";
+    display_rule: string;
+    components: ProjectionComponent[];
+  };
   transactions: Array<{
     id: string;
     date: string;

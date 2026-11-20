@@ -1,4 +1,4 @@
-import { Trash2, X } from "lucide-react";
+import { Info, Trash2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
   api,
@@ -139,6 +139,37 @@ export function CellDrawer({
             </div>
           </div>
         </div>
+
+        {/* How This Cell Was Calculated */}
+        {data?.projection_explanation && (
+          <div className="space-y-2.5 rounded-xl border border-sky-900/60 bg-sky-950/20 p-3.5">
+            <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-sky-300">
+              <Info className="h-3.5 w-3.5" />
+              How This Cell Was Calculated
+            </div>
+            <p className="text-xs leading-relaxed text-slate-300">
+              {data.projection_explanation.display_rule}
+            </p>
+            {data.projection_explanation.components.length > 0 && (
+              <div className="space-y-1.5 pt-1">
+                {data.projection_explanation.components.map((comp, idx) => (
+                  <div
+                    key={`${comp.kind}-${idx}`}
+                    className="rounded-lg border border-slate-800/80 bg-slate-950/70 px-3 py-2 text-xs"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-medium text-slate-100">{comp.label}</span>
+                      <span className="num shrink-0 font-semibold text-sky-300">
+                        {formatCurrency(comp.amount, currency)}
+                      </span>
+                    </div>
+                    <div className="mt-0.5 text-[11px] text-slate-400">{comp.detail}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Manual Override Editor */}
         {isEditable && (

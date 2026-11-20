@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://finops.local/schemas/rules.schema.json",
   "title": "FinOps Categorization & Internal Transfer Rules",
-  "description": "Deterministic YAML rules to detect internal transfers (preventing double counting) and auto-categorize transactions.",
+  "description": "Deterministic YAML rules to detect internal transfers (preventing double counting) and auto-categorize transactions by merchant regex and/or Open Finance provider_category.",
   "type": "object",
   "additionalProperties": false,
   "required": ["version", "internal_transfers", "categorization_rules"],
@@ -29,6 +29,11 @@
             "type": "string",
             "minLength": 1
           },
+          "match_provider_category": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Case-insensitive exact match against the Open Finance provider_category (e.g., 'Credit card payment')."
+          },
           "match_same_amount_opposite_sign_within_days": {
             "type": "integer",
             "minimum": 0,
@@ -42,7 +47,11 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["priority", "match_regex", "category_id", "scope"],
+        "required": ["priority", "category_id", "scope"],
+        "anyOf": [
+          { "required": ["match_regex"] },
+          { "required": ["match_provider_category"] }
+        ],
         "properties": {
           "priority": {
             "type": "integer",
@@ -54,6 +63,16 @@
           "match_regex": {
             "type": "string",
             "minLength": 1
+          },
+          "match_provider_category": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Case-insensitive match against the Open Finance provider_category (e.g., 'Groceries')."
+          },
+          "match_amount_sign": {
+            "type": "string",
+            "enum": ["positive", "negative"],
+            "description": "Optional filter: 'positive' for inflows/income, 'negative' for outflows/expenses."
           },
           "category_id": {
             "type": "string",

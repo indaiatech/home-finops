@@ -88,11 +88,13 @@ def _compute_future_installments(
     Key: `(category_id, scope, owner_person_id, month_key)` -> list of installment dicts.
     """
     latest_by_group: dict[str, Transaction] = {}
+    posted_group_months: set[tuple[str, str]] = set()
     for tx in transactions:
+        if tx.is_internal_transfer or not tx.installment_group_id:
+            continue
+        posted_group_months.add((tx.installment_group_id, tx.competence_month))
         if (
-            tx.is_internal_transfer
-            or not tx.installment_group_id
-            or not tx.installment_number
+            not tx.installment_number
             or not tx.installment_total
             or tx.installment_number >= tx.installment_total
             or not tx.category_id
@@ -105,12 +107,14 @@ def _compute_future_installments(
     projected: dict[tuple[str, str, str | None, str], list[dict[str, Any]]] = defaultdict(list)
     for tx in latest_by_group.values():
         assert tx.installment_number is not None and tx.installment_total is not None
-        assert tx.category_id is not None
+        assert tx.category_id is not None and tx.installment_group_id is not None
         remaining = tx.installment_total - tx.installment_number
         inst_abs = abs(Decimal(str(tx.amount)))
         for step in range(1, remaining + 1):
             target_month = _shift_month_key(tx.competence_month, step)
             if target_month <= current_month or target_month not in months_set:
+                continue
+            if (tx.installment_group_id, target_month) in posted_group_months:
                 continue
             key = (tx.category_id, tx.scope, tx.owner_person_id, target_month)
             projected[key].append(
@@ -303,7 +307,13 @@ def compute_spreadsheet_matrix(
                 elif sub.projection_method == "budget_cap" and sub.monthly_budget_cap is not None:
                     stat_proj = _q(Decimal(str(sub.monthly_budget_cap)))
 
-            auto_projected = _q(inst_sum + rule_sum + stat_proj)
+            posted_future = realized if mk > current_month else Decimal("0.00")
+            total_installments = _q(inst_sum + posted_future)
+            if mk > current_month and posted_future > Decimal("0.00") and stat_proj > Decimal("0.00"):
+                # Avoid double-counting posted future installments with historical moving average
+                auto_projected = _q(max(total_installments, stat_proj) + rule_sum)
+            else:
+                auto_projected = _q(total_installments + rule_sum + stat_proj)
 
             if mk < current_month:
                 # Past month -> 100% realized (keep auto_projected as budget comparison)
@@ -337,7 +347,9 @@ def compute_spreadsheet_matrix(
                 else:
                     display_val = auto_projected
                     cell_source = (
-                        "installment" if inst_sum > 0 and rule_sum == 0 and stat_proj == 0 else "projected"
+                        "installment"
+                        if total_installments > 0 and rule_sum == 0 and stat_proj == 0
+                        else "projected"
                     )
                     note = None
 
@@ -360,7 +372,7 @@ def compute_spreadsheet_matrix(
                 "value": float(display_val),
                 "realized": float(realized),
                 "projected": float(auto_projected),
-                "installments": float(inst_sum),
+                "installments": float(total_installments),
                 "source": cell_source,
                 "note": note,
             }
@@ -543,10 +555,15 @@ def get_cell_breakdown(
     )
 
     year = int(month[:4])
+    current_month = date.today().strftime("%Y-%m")
+    month_state = "past" if month < current_month else ("current" if month == current_month else "future")
+
     rule_items = []
+    rule_total = Decimal("0.00")
     for r in rules:
         amt = _rule_amount_for_month(r, month, year, annual_mode)
         if amt > Decimal("0.00"):
+            rule_total += amt
             rule_items.append(
                 {
                     "id": r.id,
@@ -557,11 +574,113 @@ def get_cell_breakdown(
                 }
             )
 
+    # Build transparent calculation explanation for the CellDrawer
+    category = db.get(Category, category_id) if category_id != "uncategorized" else None
+    method = category.projection_method if category else "none"
+    components: list[dict[str, Any]] = []
+
+    if override is not None:
+        components.append(
+            {
+                "kind": "override",
+                "label": f"Manual override (by {override.updated_by})",
+                "detail": override.note or "Replaces auto-projected value for this month.",
+                "amount": float(override.amount),
+            }
+        )
+
+    if rule_items:
+        mode_note = "1/12 monthly provision" if annual_mode == "monthly_provision" else "cash view"
+        components.append(
+            {
+                "kind": "yaml_rule",
+                "label": f"YAML projection rules ({len(rule_items)})",
+                "detail": f"Configured in local/projections.yaml ({mode_note}).",
+                "amount": float(_q(rule_total)),
+            }
+        )
+    elif category is not None:
+        if method in ("moving_avg_3m", "moving_avg_6m"):
+            window = 3 if method == "moving_avg_3m" else 6
+            lookback_months = [_shift_month_key(current_month, -step) for step in range(window, 0, -1)]
+            hist_q = db.query(Transaction).filter(
+                Transaction.category_id == category_id,
+                Transaction.scope == scope,
+                Transaction.is_internal_transfer.is_(False),
+                Transaction.competence_month.in_(lookback_months),
+            )
+            if owner is not None:
+                hist_q = hist_q.filter(Transaction.owner_person_id == owner)
+            totals_by_m: dict[str, Decimal] = defaultdict(lambda: Decimal("0.00"))
+            for ht in hist_q.all():
+                totals_by_m[ht.competence_month] += abs(Decimal(str(ht.amount)))
+
+            nonzero_months = [(m, _q(totals_by_m[m])) for m in lookback_months if totals_by_m[m] > 0]
+            if nonzero_months:
+                avg_val = _q(sum((v for _, v in nonzero_months), Decimal("0.00")) / Decimal(len(nonzero_months)))
+                breakdown_str = " • ".join(f"{m}: {float(v):.2f}" for m, v in nonzero_months)
+                components.append(
+                    {
+                        "kind": "moving_avg",
+                        "label": f"{window}-month moving average ({len(nonzero_months)} active closed months)",
+                        "detail": breakdown_str,
+                        "amount": float(avg_val),
+                    }
+                )
+            else:
+                components.append(
+                    {
+                        "kind": "moving_avg",
+                        "label": f"{window}-month moving average",
+                        "detail": "No closed historical transactions in the lookback window yet.",
+                        "amount": 0.0,
+                    }
+                )
+        elif method == "budget_cap" and category.monthly_budget_cap is not None:
+            components.append(
+                {
+                    "kind": "budget_cap",
+                    "label": "YAML monthly budget cap",
+                    "detail": "Configured in local/categories.yaml.",
+                    "amount": float(category.monthly_budget_cap),
+                }
+            )
+
+    if month_state == "future" and txs:
+        posted_sum = _q(sum((abs(Decimal(str(t.amount))) for t in txs), Decimal("0.00")))
+        components.append(
+            {
+                "kind": "installment",
+                "label": f"Posted future transactions / installments ({len(txs)})",
+                "detail": "Already scheduled by your bank/card in this future month.",
+                "amount": float(posted_sum),
+            }
+        )
+
+    if month_state == "past":
+        display_rule = "Past closed month: displays 100% realized transactions."
+    elif month_state == "current":
+        display_rule = (
+            "Current open month: displays manual override if set, otherwise max(Realized, Auto-Projected) "
+            "so monthly cash flow reflects expected month-end spend."
+        )
+    else:
+        display_rule = (
+            "Future month: prioritizes Manual Override > Committed Installments & YAML Rules > "
+            "Historical Moving Average."
+        )
+
     return {
         "month": month,
         "category_id": category_id,
         "scope": scope,
         "owner_person_id": owner,
+        "projection_explanation": {
+            "method": method,
+            "month_state": month_state,
+            "display_rule": display_rule,
+            "components": components,
+        },
         "transactions": [
             {
                 "id": t.id,

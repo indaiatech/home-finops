@@ -122,9 +122,11 @@ def test_spreadsheet_24m_annual_modes_installments_and_overrides() -> None:
     assert groc_row["cells"]["2027-05"]["source"] == "override"
     assert groc_row["cells"]["2027-05"]["note"] == "Hosting family dinner"
 
-    # Cell breakdown & simulation & exports
+    # Cell breakdown, projection explanation, simulation & exports
     cell_info = get_cell_breakdown(db, month="2026-11", category_id="food.groceries", scope="shared")
     assert len(cell_info["transactions"]) >= 1
+    assert cell_info["projection_explanation"]["method"] == "moving_avg_3m"
+    assert any(c["kind"] == "moving_avg" for c in cell_info["projection_explanation"]["components"])
 
     sim = simulate_projection_change(
         db,

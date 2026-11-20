@@ -161,10 +161,12 @@ def _validate_cross_references(loaded: dict[str, Any]) -> list[str]:
                 errors.append(f"rules.yaml: invalid regex in internal_transfers '{transfer_rule['name']}': {exc}")
 
     for idx, rule in enumerate(rules_cfg["categorization_rules"]):
-        try:
-            re.compile(rule["match_regex"])
-        except re.error as exc:
-            errors.append(f"rules.yaml: invalid regex in categorization_rules[{idx}]: {exc}")
+        regex = rule.get("match_regex")
+        if regex:
+            try:
+                re.compile(regex)
+            except re.error as exc:
+                errors.append(f"rules.yaml: invalid regex in categorization_rules[{idx}]: {exc}")
 
         if rule["category_id"] not in full_subcategory_ids:
             errors.append(

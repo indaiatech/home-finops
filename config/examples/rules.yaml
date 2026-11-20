@@ -35,3 +35,18 @@ categorization_rules:
     match_regex: "(?i)(smartfit|gympass|wellhub|totalpass)"
     category_id: personal.health_fitness
     scope: personal
+
+  # Open Finance provider_category fallbacks (lower priority)
+  - priority: 100
+    description: Fallback for Open Finance Groceries category
+    match_provider_category: "Groceries"
+    match_amount_sign: negative
+    category_id: food.groceries
+    scope: shared
+
+  - priority: 110
+    description: Fallback for Open Finance Eating out category
+    match_provider_category: "Eating out"
+    match_amount_sign: negative
+    category_id: food.dining_out
+    scope: shared
