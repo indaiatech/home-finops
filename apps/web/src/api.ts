@@ -11,6 +11,9 @@ export interface CellData {
   installments: number;
   source: "realized" | "hybrid" | "projected" | "installment" | "override";
   note: string | null;
+  threshold?: number | null;
+  utilization_pct?: number | null;
+  alarm_severity?: "critical" | "warning" | null;
 }
 
 export interface SpreadsheetRow {
@@ -25,11 +28,77 @@ export interface SpreadsheetRow {
   owner_person_id: string | null;
   owner_display_name: string;
   is_annual: boolean;
+  is_discretionary?: boolean;
+  monthly_budget_cap?: number | null;
+  warning_threshold_pct?: number;
+  cut_target_pct?: number;
   projection_method: string;
   cells: Record<string, CellData>;
   total_year_1: number;
   total_year_2: number;
   monthly_avg: number;
+}
+
+export interface ThresholdAlarm {
+  row_id: string;
+  month: string;
+  severity: "critical" | "warning";
+  category_id: string;
+  category_name: string;
+  parent_category_name: string;
+  scope: "shared" | "personal";
+  owner_person_id: string | null;
+  owner_display_name: string;
+  realized: number;
+  projected: number;
+  evaluated_amount: number;
+  threshold: number;
+  threshold_source: "yaml_threshold" | "historical_avg";
+  warning_threshold_pct: number;
+  utilization_pct: number;
+  overage: number;
+  top_merchants: Array<{ name: string; amount: number }>;
+}
+
+export interface CostCutOpportunity {
+  category_id: string;
+  category_name: string;
+  parent_category_name: string;
+  is_discretionary: boolean;
+  over_threshold: boolean;
+  configured_threshold: number | null;
+  current_monthly_avg: number;
+  total_ytd: number;
+  cut_target_pct: number;
+  suggested_monthly_cap: number;
+  potential_monthly_savings: number;
+  potential_annual_savings: number;
+  top_merchants: Array<{
+    name: string;
+    total_ytd: number;
+    monthly_avg: number;
+    tx_count: number;
+  }>;
+}
+
+export interface SubscriptionDrain {
+  merchant: string;
+  charges_count: number;
+  monthly_avg: number;
+  annualized_cost: number;
+  total_ytd: number;
+}
+
+export interface AlertsAndCutsData {
+  month: string;
+  elapsed_months_analyzed: number;
+  critical_alarms_count: number;
+  warning_alarms_count: number;
+  alarms: ThresholdAlarm[];
+  total_potential_monthly_savings: number;
+  total_potential_annual_savings: number;
+  opportunities: CostCutOpportunity[];
+  subscription_drains: SubscriptionDrain[];
 }
 
 export interface MonthSummary {
@@ -109,6 +178,7 @@ export interface SpreadsheetMatrix {
   people: Person[];
   starting_cash_balance: number;
   wealth_summary?: WealthSummary;
+  alerts_and_cuts?: AlertsAndCutsData;
   uncategorized_count: number;
   rows: SpreadsheetRow[];
   summary: Record<string, MonthSummary>;
@@ -246,6 +316,10 @@ export const api = {
 
   getSettlement(month: string) {
     return fetchJson<SettlementData>(`/api/settlement/${month}`);
+  },
+
+  getAlertsAndCuts(month: string) {
+    return fetchJson<AlertsAndCutsData>(`/api/alerts/budget?month=${encodeURIComponent(month)}`);
   },
 
   getCellBreakdown(params: {

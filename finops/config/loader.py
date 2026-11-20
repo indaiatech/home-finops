@@ -98,7 +98,9 @@ def load_and_sync_config(db: Session, config_dir: Path) -> LoadedConfig:
     db.flush()
 
     # 3. Two-level Categories (parent + parent.subcategory)
+    active_category_ids: set[str] = set()
     for cat in bundle.categories:
+        active_category_ids.add(cat["id"])
         parent = db.get(Category, cat["id"])
         if parent is None:
             parent = Category(id=cat["id"])
@@ -110,12 +112,16 @@ def load_and_sync_config(db: Session, config_dir: Path) -> LoadedConfig:
         parent.is_annual = False
         parent.projection_method = "none"
         parent.monthly_budget_cap = None
+        parent.warning_threshold_pct = Decimal("80.00")
+        parent.is_discretionary = False
+        parent.cut_target_pct = Decimal("20.00")
         parent.custom_split_weights = cat.get("custom_split_weights")
 
         db.flush()
 
         for sub in cat["subcategories"]:
             full_id = f"{cat['id']}.{sub['id']}"
+            active_category_ids.add(full_id)
             sub_row = db.get(Category, full_id)
             if sub_row is None:
                 sub_row = Category(id=full_id)
@@ -128,6 +134,9 @@ def load_and_sync_config(db: Session, config_dir: Path) -> LoadedConfig:
             sub_row.projection_method = sub["projection_method"]
             cap = sub.get("monthly_budget_cap")
             sub_row.monthly_budget_cap = Decimal(str(cap)) if cap is not None else None
+            sub_row.warning_threshold_pct = Decimal(str(sub.get("warning_threshold_pct", 80)))
+            sub_row.is_discretionary = bool(sub.get("discretionary", False))
+            sub_row.cut_target_pct = Decimal(str(sub.get("cut_target_pct", 20)))
             sub_row.custom_split_weights = cat.get("custom_split_weights")
 
     db.flush()
@@ -177,6 +186,29 @@ def load_and_sync_config(db: Session, config_dir: Path) -> LoadedConfig:
     for existing in db.query(ProjectionRule).all():
         if existing.id not in active_rule_ids:
             db.delete(existing)
+
+    db.flush()
+
+    # Prune orphan categories no longer in categories.yaml (if unreferenced by transactions/overrides)
+    from finops.db.models import ProjectionOverride, Transaction
+
+    referenced_cats: set[str] = {
+        r[0] for r in db.query(Transaction.category_id).filter(Transaction.category_id.is_not(None)).distinct()
+    }
+    referenced_cats.update(r[0] for r in db.query(ProjectionOverride.category_id).distinct())
+
+    for existing_cat in db.query(Category).filter(Category.parent_id.is_not(None)).all():
+        if existing_cat.id not in active_category_ids and existing_cat.id not in referenced_cats:
+            db.delete(existing_cat)
+
+    db.flush()
+
+    remaining_parents = {
+        r[0] for r in db.query(Category.parent_id).filter(Category.parent_id.is_not(None)).distinct()
+    }
+    for parent_cat in db.query(Category).filter(Category.parent_id.is_(None)).all():
+        if parent_cat.id not in active_category_ids and parent_cat.id not in remaining_parents:
+            db.delete(parent_cat)
 
     db.commit()
     return bundle

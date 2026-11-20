@@ -134,6 +134,9 @@ class Category(Base):
     is_annual: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     projection_method: Mapped[str] = mapped_column(String(32), nullable=False, default="none")
     monthly_budget_cap: Mapped[Decimal | None] = mapped_column(Numeric(14, 2), nullable=True)
+    warning_threshold_pct: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False, default=Decimal("80.00"))
+    is_discretionary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    cut_target_pct: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False, default=Decimal("20.00"))
     custom_split_weights: Mapped[dict[str, float] | None] = mapped_column(JSONType, nullable=True)
 
     parent: Mapped[Category | None] = relationship(remote_side="Category.id")

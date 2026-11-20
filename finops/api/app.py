@@ -625,30 +625,13 @@ def get_budget_alerts(
     threshold_pct: float = Query(default=80.0, ge=1.0, le=500.0),
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:
+    from finops.engines.alerts import compute_alerts_and_cost_cuts
+
     target_month = month or date.today().strftime("%Y-%m")
     matrix = compute_spreadsheet_matrix(db, base_year=int(target_month[:4]))
-    alerts = []
-    for row in matrix["rows"]:
-        if row["kind"] != "expense" or row["category_id"] == "uncategorized":
-            continue
-        cell = row["cells"].get(target_month)
-        if not cell or cell["projected"] <= 0:
-            continue
-        pct = round((cell["realized"] / cell["projected"]) * 100.0, 1)
-        if pct >= threshold_pct:
-            alerts.append(
-                {
-                    "category_id": row["category_id"],
-                    "category_name": f"{row['parent_category_name']} > {row['category_name']}",
-                    "scope": row["scope"],
-                    "owner": row["owner_display_name"],
-                    "realized": cell["realized"],
-                    "projected": cell["projected"],
-                    "utilization_pct": pct,
-                }
-            )
-    alerts.sort(key=lambda a: a["utilization_pct"], reverse=True)
-    return {"month": target_month, "threshold_pct": threshold_pct, "alerts": alerts}
+    data = compute_alerts_and_cost_cuts(db, matrix, target_month)
+    data["threshold_pct"] = threshold_pct
+    return data
 
 
 @app.post("/api/simulate")

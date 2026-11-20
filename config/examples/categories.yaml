@@ -46,9 +46,15 @@ categories:
       - id: groceries
         name: Groceries
         projection_method: moving_avg_3m
+        monthly_budget_cap: 1800.00
+        warning_threshold_pct: 85
       - id: dining_out
         name: Restaurants & Delivery
         projection_method: moving_avg_3m
+        monthly_budget_cap: 600.00
+        warning_threshold_pct: 80
+        discretionary: true
+        cut_target_pct: 25
 
   - id: transport
     name: Transport & Vehicle

@@ -15,6 +15,9 @@ An open-source, Infrastructure-as-Code (IaC) household financial planning platfo
   - Hierarchical rows across **General (Shared)**, **Per-Person**, **Subcategories** (e.g., Groceries, Dining Out), and **Annual/Seasonal** items (e.g., IPVA, IPTU, insurance, vacations).
   - Instant toggle between **Cash View** (full annual payment in its due month) and **Monthly Provision View** (`amount / 12` monthly reserve).
   - Layered projections: manual cell overrides -> posted/detected future credit-card installments -> YAML recurring/annual rules -> rolling moving averages or budget caps, with a transparent **How This Cell Was Calculated** breakdown drawer.
+- **Threshold Alarms & Cost-Cutting Optimizer ("Where to Cut Costs"):**
+  - Configure per-subcategory `monthly_budget_cap`, `warning_threshold_pct`, `discretionary: true`, and `cut_target_pct` in `categories.yaml` (with automatic fallback to historical monthly baselines).
+  - Dedicated UI dashboard section + red/amber cell rings in the 24-month spreadsheet highlighting categories approaching or exceeding limits, top offending merchants, ranked monthly/annual savings targets, and a recurring digital-subscriptions drain audit.
 - **Automatic Shared-Expense Settlement:** Tracks who paid each `shared` expense and calculates the exact monthly settlement transfer between household members based on configurable split weights.
 - **Hermes Agent Integration (`finops-mcp`):** Exposes typed, audited MCP tools (read, what-if simulation, transaction categorization, projection overrides, and sync health checks) plus a dedicated Hermes Skill.
 

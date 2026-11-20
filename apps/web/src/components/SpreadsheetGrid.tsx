@@ -119,6 +119,9 @@ export function SpreadsheetGrid({
                   {r.parent_category_name}
                   {r.scope === "personal" ? ` • ${r.owner_display_name}` : " • General"}
                   {r.is_annual ? " • Annual" : ""}
+                  {r.monthly_budget_cap
+                    ? ` • Limit ${formatCurrency(r.monthly_budget_cap, matrix.currency)}`
+                    : ""}
                 </div>
               </div>
             </div>
@@ -172,6 +175,7 @@ export function SpreadsheetGrid({
         const isProjected = cell.source === "projected" || cell.source === "installment";
         const isOverride = cell.source === "override";
         const isZero = cell.value === 0;
+        const alarm = cell.alarm_severity;
 
         return (
           <div
@@ -182,25 +186,43 @@ export function SpreadsheetGrid({
               setEditingCell({ rowId: r.row_id, month: mk, value: String(cell.value) });
             }}
             title={
-              cell.note
-                ? `Manual override: ${cell.note}`
-                : canEdit
-                  ? "Click for breakdown • Double-click to override"
-                  : "Click to inspect realized transactions"
+              alarm
+                ? `${alarm.toUpperCase()} (${cell.utilization_pct?.toFixed(0)}% of ${formatCurrency(cell.threshold || 0, matrix.currency)} threshold)`
+                : cell.note
+                  ? `Manual override: ${cell.note}`
+                  : canEdit
+                    ? "Click for breakdown • Double-click to override"
+                    : "Click to inspect realized transactions"
             }
             className={`num group relative flex cursor-pointer items-center justify-end gap-1 rounded px-1.5 py-1 text-right text-xs transition hover:bg-slate-800/80 ${
-              isZero
-                ? "text-slate-600"
-                : isOverride
-                  ? "font-semibold text-amber-300"
-                  : isProjected
-                    ? "italic text-sky-300/90"
-                    : r.kind === "income"
-                      ? "font-medium text-emerald-300"
-                      : "text-slate-100"
+              alarm === "critical"
+                ? "bg-rose-950/45 font-bold text-rose-200 ring-1 ring-rose-500/50"
+                : alarm === "warning"
+                  ? "bg-amber-950/35 font-semibold text-amber-200 ring-1 ring-amber-500/40"
+                  : isZero
+                    ? "text-slate-600"
+                    : isOverride
+                      ? "font-semibold text-amber-300"
+                      : isProjected
+                        ? "italic text-sky-300/90"
+                        : r.kind === "income"
+                          ? "font-medium text-emerald-300"
+                          : "text-slate-100"
             }`}
           >
-            {isOverride && (
+            {alarm === "critical" && (
+              <span
+                className="h-1.5 w-1.5 shrink-0 rounded-full bg-rose-400"
+                title="Exceeded threshold"
+              />
+            )}
+            {alarm === "warning" && (
+              <span
+                className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400"
+                title="Approaching threshold"
+              />
+            )}
+            {isOverride && !alarm && (
               <span
                 className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400"
                 title="Manual override"

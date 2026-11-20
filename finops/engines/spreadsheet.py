@@ -368,6 +368,23 @@ def compute_spreadsheet_matrix(
                 if sc == "shared":
                     shared_expense_totals[mk] += display_val
 
+            # Compute threshold alarm severity per cell when monthly_budget_cap is configured
+            alarm_severity: str | None = None
+            util_pct: float | None = None
+            cap_val: float | None = (
+                float(_q(Decimal(str(sub.monthly_budget_cap))))
+                if sub.kind == "expense" and sub.monthly_budget_cap is not None and sub.monthly_budget_cap > 0
+                else None
+            )
+            if cap_val is not None and display_val > Decimal("0.00"):
+                cap_dec = Decimal(str(sub.monthly_budget_cap))
+                util_pct = float(_q((display_val / cap_dec) * Decimal("100")))
+                warn_cutoff = float(sub.warning_threshold_pct or 80)
+                if util_pct >= 100.0:
+                    alarm_severity = "critical"
+                elif util_pct >= warn_cutoff:
+                    alarm_severity = "warning"
+
             cells[mk] = {
                 "value": float(display_val),
                 "realized": float(realized),
@@ -375,6 +392,9 @@ def compute_spreadsheet_matrix(
                 "installments": float(total_installments),
                 "source": cell_source,
                 "note": note,
+                "threshold": cap_val,
+                "utilization_pct": util_pct,
+                "alarm_severity": alarm_severity,
             }
 
         # Always keep configured rows with rules/budgets or any data; skip completely empty orphan personal rows
@@ -394,6 +414,12 @@ def compute_spreadsheet_matrix(
                 "owner_person_id": own,
                 "owner_display_name": people_map[own].display_name if own and own in people_map else "General",
                 "is_annual": sub.is_annual,
+                "is_discretionary": bool(sub.is_discretionary),
+                "monthly_budget_cap": (
+                    float(_q(Decimal(str(sub.monthly_budget_cap)))) if sub.monthly_budget_cap is not None else None
+                ),
+                "warning_threshold_pct": float(sub.warning_threshold_pct or 80),
+                "cut_target_pct": float(sub.cut_target_pct or 20),
                 "projection_method": sub.projection_method,
                 "cells": cells,
                 "total_year_1": float(_q(y1_total)),
@@ -570,7 +596,7 @@ def compute_spreadsheet_matrix(
 
     current_settlement = compute_monthly_settlement(db, current_month)
 
-    return {
+    result_matrix = {
         "base_year": year,
         "next_year": year + 1,
         "current_month": current_month,
@@ -594,6 +620,10 @@ def compute_spreadsheet_matrix(
         "summary": summary,
         "current_month_settlement": current_settlement,
     }
+    from finops.engines.alerts import compute_alerts_and_cost_cuts
+
+    result_matrix["alerts_and_cuts"] = compute_alerts_and_cost_cuts(db, result_matrix, current_month)
+    return result_matrix
 
 
 def get_cell_breakdown(

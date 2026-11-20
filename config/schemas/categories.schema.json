@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://finops.local/schemas/categories.schema.json",
   "title": "FinOps Categories & Subcategories Configuration",
-  "description": "Defines the 2-level taxonomy (category -> subcategory), default scope (shared/personal), annual flags, and projection methods.",
+  "description": "Defines the 2-level taxonomy (category -> subcategory), default scope (shared/personal), annual flags, projection methods, alarm thresholds, and cost-cutting targets.",
   "type": "object",
   "additionalProperties": false,
   "required": ["version", "categories"],
@@ -82,7 +82,26 @@
                 "monthly_budget_cap": {
                   "type": "number",
                   "minimum": 0,
-                  "description": "Monthly budget cap when projection_method is budget_cap."
+                  "description": "Monthly budget cap / alarm threshold in currency units."
+                },
+                "warning_threshold_pct": {
+                  "type": "number",
+                  "minimum": 1,
+                  "maximum": 100,
+                  "default": 80,
+                  "description": "Percentage of monthly_budget_cap that triggers a warning alarm (default 80%)."
+                },
+                "discretionary": {
+                  "type": "boolean",
+                  "default": false,
+                  "description": "Marks a subcategory as discretionary / eligible for cost-cutting recommendations."
+                },
+                "cut_target_pct": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100,
+                  "default": 20,
+                  "description": "Target reduction percentage when computing cost-cutting opportunities."
                 }
               }
             }

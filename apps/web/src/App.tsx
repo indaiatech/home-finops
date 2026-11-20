@@ -18,6 +18,7 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   api,
+  type AlertsAndCutsData,
   type CategoryTree,
   type SettlementData,
   type SpreadsheetMatrix,
@@ -26,6 +27,7 @@ import {
   formatCurrency,
   formatMonthShort,
 } from "./api";
+import { AlertsAndCutsPanel } from "./components/AlertsAndCutsPanel";
 import { CellDrawer } from "./components/CellDrawer";
 import { ImportModal } from "./components/ImportModal";
 import { SpreadsheetGrid } from "./components/SpreadsheetGrid";
@@ -37,6 +39,8 @@ export default function App() {
   const [categories, setCategories] = useState<CategoryTree[]>([]);
   const [settlement, setSettlement] = useState<SettlementData | null>(null);
   const [settlementMonth, setSettlementMonth] = useState<string>("");
+  const [alertsAndCuts, setAlertsAndCuts] = useState<AlertsAndCutsData | null>(null);
+  const [alertsMonth, setAlertsMonth] = useState<string>("");
 
   const [scopeFilter, setScopeFilter] = useState<"all" | "shared" | "personal" | "annual">("all");
   const [personFilter, setPersonFilter] = useState<string>("");
@@ -77,6 +81,13 @@ export default function App() {
         const s = await api.getSettlement(settlementMonth);
         setSettlement(s);
       }
+      if (!alertsMonth) {
+        setAlertsMonth(sheet.current_month);
+        setAlertsAndCuts(sheet.alerts_and_cuts || null);
+      } else {
+        const ac = await api.getAlertsAndCuts(alertsMonth);
+        setAlertsAndCuts(ac);
+      }
     } catch (err) {
       setToast(`Failed to load FinOps API: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
@@ -92,6 +103,12 @@ export default function App() {
     setSettlementMonth(month);
     const data = await api.getSettlement(month);
     setSettlement(data);
+  }
+
+  async function handleAlertsMonthChange(month: string) {
+    setAlertsMonth(month);
+    const data = await api.getAlertsAndCuts(month);
+    setAlertsAndCuts(data);
   }
 
   async function handleSyncPluggy() {
@@ -459,6 +476,19 @@ export default function App() {
             </div>
           </section>
         </div>
+
+        {/* Threshold Alarms & Where We Can Cut Costs Section */}
+        {matrix && (alertsAndCuts || matrix.alerts_and_cuts) && (
+          <AlertsAndCutsPanel
+            data={(alertsAndCuts || matrix.alerts_and_cuts)!}
+            months={matrix.months}
+            selectedMonth={alertsMonth || matrix.current_month}
+            currency={matrix.currency}
+            rows={matrix.rows}
+            onChangeMonth={handleAlertsMonthChange}
+            onSelectAlarmCell={(row, month) => setSelectedCell({ row, month })}
+          />
+        )}
 
         {/* Spreadsheet Filters & Mode Controls */}
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-900/50 px-4 py-2.5">
