@@ -1,0 +1,34 @@
+# Data sources configuration (Pluggy Personal Use API + optional CSV/OFX fallback).
+# Copy to local/sources.yaml and replace item_id UUIDs with your mirrored MeuPluggy items
+# from dashboard.pluggy.ai (Demo -> Connected Items). See docs/meu-pluggy-setup.md.
+version: 1
+
+sources:
+  - id: pluggy_person_a
+    provider: pluggy_api
+    person_id: person_a
+    client_id_env: PLUGGY_PERSON_A_CLIENT_ID
+    client_secret_env: PLUGGY_PERSON_A_CLIENT_SECRET
+    items:
+      - item_id: "00000000-0000-0000-0000-000000000001"
+        label: "Primary Bank A"
+        default_scope: personal
+      - item_id: "00000000-0000-0000-0000-000000000002"
+        label: "Household Credit Card"
+        default_scope: shared
+
+  - id: pluggy_person_b
+    provider: pluggy_api
+    person_id: person_b
+    client_id_env: PLUGGY_PERSON_B_CLIENT_ID
+    client_secret_env: PLUGGY_PERSON_B_CLIENT_SECRET
+    items:
+      - item_id: "00000000-0000-0000-0000-000000000003"
+        label: "Primary Bank B"
+        default_scope: personal
+
+  - id: manual_imports_a
+    provider: file_import
+    person_id: person_a
+    import_dir: imports/person_a
+    default_scope: personal

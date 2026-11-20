@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://finops.local/schemas/projections.schema.json",
+  "title": "FinOps Projections Configuration",
+  "description": "Declares the spreadsheet time horizon (current + next calendar year), fixed recurring items, and annual/seasonal items.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "horizon", "recurring", "annual"],
+  "properties": {
+    "version": {
+      "type": "integer",
+      "const": 1
+    },
+    "horizon": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode"],
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["current_plus_next_year", "rolling_12m"]
+        },
+        "default_annual_view": {
+          "type": "string",
+          "enum": ["cash", "monthly_provision"],
+          "default": "cash"
+        }
+      }
+    },
+    "recurring": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "category_id", "scope", "amount", "frequency", "valid_from"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "category_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*$"
+          },
+          "scope": {
+            "type": "string",
+            "enum": ["shared", "personal"]
+          },
+          "owner_person_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "amount": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "frequency": {
+            "type": "string",
+            "enum": ["monthly", "quarterly", "semiannual"]
+          },
+          "valid_from": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$"
+          },
+          "valid_to": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$"
+          },
+          "annual_adjustment_pct": {
+            "type": "number",
+            "minimum": -50,
+            "maximum": 100,
+            "default": 0
+          }
+        }
+      }
+    },
+    "annual": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "category_id", "scope", "amount", "due_month", "smooth_monthly"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "category_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*$"
+          },
+          "scope": {
+            "type": "string",
+            "enum": ["shared", "personal"]
+          },
+          "owner_person_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "amount": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "due_month": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 12
+          },
+          "smooth_monthly": {
+            "type": "boolean",
+            "description": "When true, enables 1/12 monthly provisioning view in the spreadsheet."
+          },
+          "annual_adjustment_pct": {
+            "type": "number",
+            "minimum": -50,
+            "maximum": 100,
+            "default": 0
+          }
+        }
+      }
+    }
+  }
+}

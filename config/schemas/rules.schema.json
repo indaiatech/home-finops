@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://finops.local/schemas/rules.schema.json",
+  "title": "FinOps Categorization & Internal Transfer Rules",
+  "description": "Deterministic YAML rules to detect internal transfers (preventing double counting) and auto-categorize transactions.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "internal_transfers", "categorization_rules"],
+  "properties": {
+    "version": {
+      "type": "integer",
+      "const": 1
+    },
+    "internal_transfers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "description": {
+            "type": "string"
+          },
+          "match_regex": {
+            "type": "string",
+            "minLength": 1
+          },
+          "match_same_amount_opposite_sign_within_days": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 7
+          }
+        }
+      }
+    },
+    "categorization_rules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["priority", "match_regex", "category_id", "scope"],
+        "properties": {
+          "priority": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "description": {
+            "type": "string"
+          },
+          "match_regex": {
+            "type": "string",
+            "minLength": 1
+          },
+          "category_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*$",
+            "description": "Dot-separated category.subcategory reference (e.g., food.groceries)."
+          },
+          "scope": {
+            "type": "string",
+            "enum": ["shared", "personal"]
+          },
+          "owner_person_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "description": "Optional explicit owner for personal scope; if omitted, inherits the source account's person_id."
+          }
+        }
+      }
+    }
+  }
+}

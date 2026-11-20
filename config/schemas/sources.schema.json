@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://finops.local/schemas/sources.schema.json",
+  "title": "FinOps Data Sources Configuration",
+  "description": "Declares Pluggy API sources (Personal Use via Meu Pluggy -> Dashboard) and optional CSV/OFX import folders.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "sources"],
+  "properties": {
+    "version": {
+      "type": "integer",
+      "const": 1
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "provider",
+              "person_id",
+              "client_id_env",
+              "client_secret_env",
+              "items"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]*$"
+              },
+              "provider": {
+                "type": "string",
+                "const": "pluggy_api"
+              },
+              "person_id": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]*$"
+              },
+              "client_id_env": {
+                "type": "string",
+                "pattern": "^[A-Z][A-Z0-9_]*$",
+                "description": "Name of the environment variable holding the Pluggy Client ID."
+              },
+              "client_secret_env": {
+                "type": "string",
+                "pattern": "^[A-Z][A-Z0-9_]*$",
+                "description": "Name of the environment variable holding the Pluggy Client Secret."
+              },
+              "items": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["item_id", "label", "default_scope"],
+                  "properties": {
+                    "item_id": {
+                      "type": "string",
+                      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+                      "description": "UUID of the mirrored MeuPluggy Item in Pluggy Dashboard."
+                    },
+                    "label": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "default_scope": {
+                      "type": "string",
+                      "enum": ["personal", "shared"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "provider", "person_id", "import_dir", "default_scope"],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]*$"
+              },
+              "provider": {
+                "type": "string",
+                "const": "file_import"
+              },
+              "person_id": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]*$"
+              },
+              "import_dir": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Relative path inside local/ containing CSV/OFX files."
+              },
+              "default_scope": {
+                "type": "string",
+                "enum": ["personal", "shared"]
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}

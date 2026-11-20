@@ -1,0 +1,37 @@
+# Deterministic categorization and internal-transfer detection rules.
+# Lower priority number runs first. Copy to local/rules.yaml to customize merchants.
+version: 1
+
+internal_transfers:
+  - name: credit_card_bill_payment
+    description: Exclude credit card invoice payments paid from checking accounts to avoid double counting.
+    match_regex: "(?i)(pagamento de fatura|pagto fatura|credit card payment|fatura cartao)"
+
+  - name: inter_account_settlement
+    description: Detect matching transfers between household accounts within 2 days.
+    match_same_amount_opposite_sign_within_days: 2
+
+categorization_rules:
+  - priority: 10
+    description: Major supermarkets and grocery stores
+    match_regex: "(?i)(supermarket|grocery|carrefour|pao de acucar|assai|atacadao|hortifruti)"
+    category_id: food.groceries
+    scope: shared
+
+  - priority: 20
+    description: Food delivery apps
+    match_regex: "(?i)(ifood|rappi|ubereats|restaurant)"
+    category_id: food.dining_out
+    scope: shared
+
+  - priority: 30
+    description: Ride-hailing apps (defaults to the card/account owner)
+    match_regex: "(?i)(uber\\s*\\*trip|99app|lyft)"
+    category_id: transport.fuel_ridehail
+    scope: personal
+
+  - priority: 40
+    description: Gym and wellness
+    match_regex: "(?i)(smartfit|gympass|wellhub|totalpass)"
+    category_id: personal.health_fitness
+    scope: personal

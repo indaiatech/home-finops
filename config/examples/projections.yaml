@@ -1,0 +1,82 @@
+# Time horizon, fixed recurring items, and annual/seasonal items for the 24-month spreadsheet.
+version: 1
+
+horizon:
+  # Current calendar year + next calendar year (24 monthly columns).
+  mode: current_plus_next_year
+  default_annual_view: cash
+
+recurring:
+  - id: salary_person_a
+    name: Monthly Salary (Person A)
+    category_id: income.salary
+    scope: personal
+    owner_person_id: person_a
+    amount: 9500.00
+    frequency: monthly
+    valid_from: "2026-01"
+    annual_adjustment_pct: 4.5
+
+  - id: salary_person_b
+    name: Monthly Salary (Person B)
+    category_id: income.salary
+    scope: personal
+    owner_person_id: person_b
+    amount: 8500.00
+    frequency: monthly
+    valid_from: "2026-01"
+    annual_adjustment_pct: 4.5
+
+  - id: apartment_rent
+    name: Apartment Rent & Condo
+    category_id: housing.rent
+    scope: shared
+    amount: 3400.00
+    frequency: monthly
+    valid_from: "2026-01"
+    annual_adjustment_pct: 5.0
+
+  - id: fiber_internet
+    name: Home Fiber Internet
+    category_id: housing.internet
+    scope: shared
+    amount: 149.90
+    frequency: monthly
+    valid_from: "2026-01"
+
+annual:
+  - id: vehicle_tax_ipva
+    name: Annual Vehicle Tax (IPVA)
+    category_id: transport.vehicle_tax
+    scope: shared
+    amount: 3600.00
+    due_month: 1
+    smooth_monthly: true
+    annual_adjustment_pct: 0
+
+  - id: property_tax_iptu
+    name: Annual Property Tax (IPTU)
+    category_id: housing.property_tax
+    scope: shared
+    amount: 1800.00
+    due_month: 2
+    smooth_monthly: true
+    annual_adjustment_pct: 4.5
+
+  - id: auto_insurance
+    name: Auto Insurance Renewal
+    category_id: transport.vehicle_insurance
+    scope: shared
+    amount: 2400.00
+    due_month: 6
+    smooth_monthly: true
+    annual_adjustment_pct: 5.0
+
+  - id: year_end_vacation
+    name: Annual Household Vacation
+    category_id: travel.annual_vacation
+    scope: shared
+    amount: 6000.00
+    due_month: 12
+    smooth_monthly: true
+    annual_adjustment_pct: 5.0

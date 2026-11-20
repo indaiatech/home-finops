@@ -1,0 +1,13 @@
+# Household members and default cost-sharing weights for shared (general) expenses.
+# Copy to local/people.yaml and customize names/weights. Weights must sum to 1.0.
+version: 1
+currency: BRL
+
+people:
+  - id: person_a
+    display_name: Person A
+    default_split_weight: 0.50
+
+  - id: person_b
+    display_name: Person B
+    default_split_weight: 0.50

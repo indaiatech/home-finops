@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://finops.local/schemas/people.schema.json",
+  "title": "FinOps People Configuration",
+  "description": "Defines household members and their default cost-sharing weights for shared (general) expenses.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "currency", "people"],
+  "properties": {
+    "version": {
+      "type": "integer",
+      "const": 1
+    },
+    "currency": {
+      "type": "string",
+      "pattern": "^[A-Z]{3}$",
+      "description": "ISO 4217 3-letter currency code (e.g., BRL, USD, EUR)."
+    },
+    "people": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "display_name", "default_split_weight"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "description": "Stable machine identifier for the person (e.g., person_a)."
+          },
+          "display_name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Human-friendly display name shown in the UI."
+          },
+          "default_split_weight": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "Default share of general/shared expenses (weights across all people must sum to 1.0)."
+          }
+        }
+      }
+    }
+  }
+}

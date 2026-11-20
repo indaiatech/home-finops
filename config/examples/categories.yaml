@@ -1,0 +1,97 @@
+# Two-level taxonomy: Category -> Subcategory.
+# Supports shared (general) and personal scopes, annual items, and projection strategies.
+version: 1
+
+categories:
+  - id: income
+    name: Income
+    kind: income
+    default_scope: personal
+    subcategories:
+      - id: salary
+        name: Salary
+        projection_method: fixed_rule
+      - id: bonus_13th
+        name: Annual Bonus / 13th Salary
+        is_annual: true
+        projection_method: annual_rule
+      - id: other_income
+        name: Other Income
+        projection_method: none
+
+  - id: housing
+    name: Housing
+    kind: expense
+    default_scope: shared
+    subcategories:
+      - id: rent
+        name: Rent / Mortgage
+        projection_method: fixed_rule
+      - id: utilities
+        name: Utilities (Power, Water, Gas)
+        projection_method: moving_avg_3m
+      - id: internet
+        name: Internet & Streaming
+        projection_method: fixed_rule
+      - id: property_tax
+        name: Property Tax (IPTU)
+        is_annual: true
+        projection_method: annual_rule
+
+  - id: food
+    name: Food
+    kind: expense
+    default_scope: shared
+    subcategories:
+      - id: groceries
+        name: Groceries
+        projection_method: moving_avg_3m
+      - id: dining_out
+        name: Restaurants & Delivery
+        projection_method: moving_avg_3m
+
+  - id: transport
+    name: Transport & Vehicle
+    kind: expense
+    default_scope: shared
+    subcategories:
+      - id: fuel_ridehail
+        name: Fuel & Ride-hailing
+        projection_method: moving_avg_3m
+      - id: vehicle_tax
+        name: Vehicle Tax (IPVA)
+        is_annual: true
+        projection_method: annual_rule
+      - id: vehicle_insurance
+        name: Vehicle Insurance
+        is_annual: true
+        projection_method: annual_rule
+
+  - id: travel
+    name: Travel & Vacations
+    kind: expense
+    default_scope: shared
+    subcategories:
+      - id: annual_vacation
+        name: Annual Vacation
+        is_annual: true
+        projection_method: annual_rule
+
+  - id: personal
+    name: Personal Expenses
+    kind: expense
+    default_scope: personal
+    subcategories:
+      - id: health_fitness
+        name: Health & Gym
+        projection_method: fixed_rule
+      - id: leisure
+        name: Leisure & Hobbies
+        projection_method: budget_cap
+        monthly_budget_cap: 600.00
+      - id: shopping
+        name: Clothing & Personal Shopping
+        projection_method: moving_avg_3m
+      - id: education
+        name: Courses & Subscriptions
+        projection_method: fixed_rule
